@@ -1,0 +1,75 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(Seurat)
+```
+
+# Introduction
+
+# Data set loading and inspection
+
+```{r}
+run17_c1 <- readr::read_csv("SyTask AML/Run17/Run 17_Cartridge 1/Combined_Rieger_Rhapsody_Run17_AML1_RSEC_MolsPerCell.csv", skip = 7) 
+run17_c2 <- readr::read_csv("SyTask AML/Run17/Run 17_Cartridge 2/Combined_Rieger_Rhapsody_Run17_AML2_RSEC_MolsPerCell.csv", skip = 7)
+
+run22_c1 <- readr::read_csv("SyTask AML/Run22/Run22_Cartridge 1/Combined_SyTAML1_RSEC_MolsPerCell.csv", skip = 7)
+run22_c2 <- readr::read_csv("SyTask AML/Run22/Run22_Cartridge 2/Combined_SyTAML2_RSEC_MolsPerCell.csv", skip = 7)
+
+run17_c1_rna <- dplyr::select(run17_c1, Cell_Index, !contains("pAbO"))
+run17_c1_rna %>% column_to_rownames("Cell_Index") %>% t() %>% as.matrix() -> run17_c1_rna
+run17_c1_ab <- dplyr::select(run17_c1, Cell_Index, contains("pAbO")) %>% column_to_rownames("Cell_Index") %>% t() %>% as.matrix() -> run17_c1_ab
+
+run17_c2_rna <- dplyr::select(run17_c2, Cell_Index, !contains("pAbO")) %>% column_to_rownames("Cell_Index") %>% t() %>% as.matrix() -> run17_c2_rna
+run17_c2_ab <- dplyr::select(run17_c2, Cell_Index, contains("pAbO")) %>% column_to_rownames("Cell_Index") %>% t() %>% as.matrix() -> run17_c2_ab
+
+run22_c1_rna <- dplyr::select(run22_c1, Cell_Index, !contains("pAbO")) %>% column_to_rownames("Cell_Index") %>% t() %>% as.matrix() -> run22_c1_rna
+run22_c1_ab <- dplyr::select(run22_c1, Cell_Index, contains("pAbO")) %>% column_to_rownames("Cell_Index") %>% t() %>% as.matrix() -> run22_c1_rna
+
+run22_c2_rna <- dplyr::select(run22_c2, Cell_Index, !contains("pAbO")) %>% column_to_rownames("Cell_Index") %>% t() %>% as.matrix() -> run22_c2_rna 
+run22_c2_ab <- dplyr::select(run22_c2, Cell_Index, contains("pAbO")) %>% column_to_rownames("Cell_Index") %>% t() %>% as.matrix() -> run22_c2_ab
+
+run17_c1_tags <- readr::read_csv("SyTask AML/Run17/Run 17_Cartridge 1/Rieger_Rhapsody_Run17_AML2_Sample_Tag_Calls.csv", skip = 7)
+
+run17_c2_tags <- readr::read_csv("SyTask AML/Run17/Run 17_Cartridge 2/Rieger_Rhapsody_Run17_AML1_Sample_Tag_Calls.csv", skip = 7)
+
+run22_c1_tags <- readr::read_csv("SyTask AML/Run22/Run22_Cartridge 1/SyTAML1_Sample_Tag_Calls.csv", skip = 7)
+
+run22_c2_tags <- readr::read_csv("SyTask AML/Run22/Run22_Cartridge 2/SyTAML2_Sample_Tag_Calls.csv", skip = 7)
+
+```
+
+We first identify cells flagged as multiplets
+
+```{r}
+sapply(list("run17_c1" = run17_c1_tags, "run17_c2" = run17_c2_tags, "run22_c1" = run22_c1_tags, "run22_c2" = run22_c2_tags), FUN = function(x) {group_by(x, Sample_Tag) %>% summarize(n = n(), freq = n()/nrow(x) * 100)}, USE.NAMES = T, simplify = F) %>% bind_rows(.id = "exp") %>% 
+  pivot_wider(id_cols = exp, names_from = Sample_Tag, values_from = c(n, freq))
+```
+While run 17 have multiplet frequencies of around 4% run22 have multiplet frequencies of around 10%. Total number of cells per run
+
+```{r}
+sapply(list("run17_c1" = run17_c1_tags, "run17_c2" = run17_c2_tags, "run22_c1" = run22_c1_tags, "run22_c2" = run22_c2_tags), FUN = function(x) {summarize(x, n = n())}, USE.NAMES = T, simplify = F) %>% bind_rows(.id = "exp") 
+
+```
+```{r}
+run17_c1.seurat <- Seurat::CreateSeuratObject(counts = run17_c1_rna)
+run17_c2.seurat <- Seurat::CreateSeuratObject(counts = run17_c2_rna)
+run22_c1.seurat <- Seurat::CreateSeuratObject(counts = run22_c1_rna)
+run22_c2.seurat <- Seurat::CreateSeuratObject(counts = run22_c2_rna)
+
+run17_c1.adt <- Seurat::CreateAssayObject(counts = run17_c1_ab)
+run17_c2.adt <- Seurat::CreateAssayObject(counts = run17_c2_ab)
+run22_c1.adt <- Seurat::CreateAssayObject(counts = run22_c1_ab)
+run22_c2.adt <- Seurat::CreateAssayObject(counts = run22_c2_ab)
+```
+
+```{r}
+run17_c1.seurat[["adt"]] <- run17_c1.adt
+run17_c2.seurat[["adt"]] <- run17_c2.adt
+run22_c1.seurat[["adt"]] <- run22_c1.adt
+run22_c2.seurat[["adt"]] <- run22_c2.adt
+```
+
